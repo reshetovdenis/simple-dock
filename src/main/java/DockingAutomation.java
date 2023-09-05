@@ -13,6 +13,8 @@ public class DockingAutomation {
     private static final String AUTOGRID4 = "/Users/adr/software/ADFRsuite_x86_64Darwin_1.0/bin/bin/autogrid4";
     private static final String VINA = "/Users/adr/software/vina_1.2.5_mac_x86_64";
     private static final int EXHAUSTIVENESS = 32;
+    private static final String NPTS = "20 20 20";
+    private static final String GRID_CENTER = "85.176 141.059 163.344";
 
     public static void main(String[] args) {
         try {
@@ -38,8 +40,10 @@ public class DockingAutomation {
         try (BufferedReader br = new BufferedReader(new FileReader(path))) {
             String line;
             while ((line = br.readLine()) != null) {
-                if (line.trim().startsWith("gridcenter")) {
-                    modifiedLines.add("gridcenter 85.176 141.059 163.344");
+                if (line.trim().startsWith("npts")) {
+                    modifiedLines.add("npts " + NPTS);
+                } else if (line.trim().startsWith("gridcenter")) {
+                    modifiedLines.add("gridcenter " + GRID_CENTER);
                 } else {
                     modifiedLines.add(line);
                 }
@@ -57,36 +61,44 @@ public class DockingAutomation {
     private static void prepareReceptor() throws IOException, InterruptedException {
         new File(DOCKING_DIR).mkdirs();
 
-        File receptorFile = new File(DOCKING_DIR + "/7usc_R87C.pdbqt");
+        File receptorFile = new File(DOCKING_DIR + "/receptor.pdbqt");
         if (!receptorFile.exists()) {  // Check if the receptor has already been prepared
-            executeCommand("cp " + RECEPTOR_FILE_NAME + " " + DOCKING_DIR);
-            executeCommand(PREPARE_RECEPTOR + " -r " + DOCKING_DIR + "/7usc_R87C_H_pymol.pdb -o " + DOCKING_DIR + "/7usc_R87C.pdbqt");
+            executeCommand("cp " + RECEPTOR_FILE_NAME + " " + DOCKING_DIR+"/receptor.pdb");
+            executeCommand(PREPARE_RECEPTOR + " -r " + DOCKING_DIR + "/receptor.pdb -o " + DOCKING_DIR + "/receptor.pdbqt");
         } else {
             System.out.println("Receptor is already prepared. Skipping preparation...");
         }
     }
 
     private static void processLigand(String ligandFileName) throws IOException, InterruptedException {
+        System.out.println(ligandFileName);
         String ligandBaseName = ligandFileName.split("\\.")[0];
         String ligandDir = DOCKING_DIR + "/" + ligandBaseName;
         new File(ligandDir).mkdirs();
 
-        String receptor_pbqt = DOCKING_DIR + "/7usc_R87C.pdbqt";
+        String receptor_pbqt = DOCKING_DIR + "/receptor.pdbqt";
         executeCommand("cp " + receptor_pbqt + " " + ligandDir);
 
         executeCommand(OBABEL + " " + LIGANDS_DIR + "/" + ligandFileName + " -O " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -h");
         executeCommand("/usr/local/bin/python3 /Library/Frameworks/Python.framework/Versions/3.6/bin/mk_prepare_ligand.py -i " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -o " + ligandDir + "/" + ligandBaseName + ".pdbqt");
         File workingDirectory = new File(ligandDir);
         executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + receptor_pbqt + " -y", workingDirectory);
-        editGpfFile(ligandDir + "/7usc_R87C.gpf");
-        executeCommand(AUTOGRID4 + " -p " + ligandDir + "/7usc_R87C.gpf -l " + ligandDir + "/7usc_R87C.glg", workingDirectory);
-        File affinityFile = new File(ligandDir+"/vina_results.txt");
-        executeCommand(VINA + " --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/7usc_R87C --scoring ad4 --exhaustiveness " +
+        editGpfFile(ligandDir + "/receptor.gpf");
+        executeCommand(AUTOGRID4 + " -p " + ligandDir + "/receptor.gpf -l " + ligandDir + "/receptor.glg", workingDirectory);
+        File affinityFile = new File(ligandDir + "/vina_results.txt");
+        executeCommand(VINA + " --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/receptor --scoring ad4 --exhaustiveness " +
                 EXHAUSTIVENESS +
                 " --out " + ligandDir + "/" + ligandBaseName + "_ad4_out.pdbqt", null, affinityFile);
     }
 
     private static void generatePyMolScript() throws IOException {
+        //open molecules
+        //color protein by chain
+        //find polar contact between ligand and receptor
+        //display ligand as sticks
+        //select pocket, byres all within 2.5 of sele
+        //show pocket as sticks
+
         BufferedWriter writer = new BufferedWriter(new FileWriter(DOCKING_DIR + "/visualize_in_pymol.pml"));
         writer.write("load " + RECEPTOR_FILE_NAME + "\n");
 
@@ -97,7 +109,7 @@ public class DockingAutomation {
                     if (file.getName().endsWith("_ad4_out.pdbqt")) {
                         String ligandOutName = file.getName().split("\\.")[0];
                         writer.write("load " + ligandDirectory.getPath() + "/" + file.getName() + ", " + ligandOutName + "\n");
-                        writer.write("show dots, 7usc_R87C_H_pymol\n");
+                        writer.write("show dots, receptor\n");
                         writer.write("show sticks, " + ligandOutName + "\n");
                     }
                 }
@@ -135,6 +147,7 @@ public class DockingAutomation {
     private static void executeCommand(String command, File directory) throws IOException, InterruptedException {
         executeCommand(command, directory, null);
     }
+
     private static void executeCommand(String command) throws IOException, InterruptedException {
         executeCommand(command, null);
     }
