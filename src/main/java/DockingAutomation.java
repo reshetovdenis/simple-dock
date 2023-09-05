@@ -71,14 +71,15 @@ public class DockingAutomation {
     }
 
     private static void processLigand(String ligandFileName) throws IOException, InterruptedException {
-        System.out.println(ligandFileName);
         String ligandBaseName = ligandFileName.split("\\.")[0];
+        System.out.println(ligandFileName);
         String ligandDir = DOCKING_DIR + "/" + ligandBaseName;
         new File(ligandDir).mkdirs();
 
         String receptor_pbqt = DOCKING_DIR + "/receptor.pdbqt";
         executeCommand("cp " + receptor_pbqt + " " + ligandDir);
 
+        ligandBaseName = "ligand";
         executeCommand(OBABEL + " " + LIGANDS_DIR + "/" + ligandFileName + " -O " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -h");
         executeCommand("/usr/local/bin/python3 /Library/Frameworks/Python.framework/Versions/3.6/bin/mk_prepare_ligand.py -i " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -o " + ligandDir + "/" + ligandBaseName + ".pdbqt");
         File workingDirectory = new File(ligandDir);
@@ -88,7 +89,7 @@ public class DockingAutomation {
         File affinityFile = new File(ligandDir + "/vina_results.txt");
         executeCommand(VINA + " --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/receptor --scoring ad4 --exhaustiveness " +
                 EXHAUSTIVENESS +
-                " --out " + ligandDir + "/" + ligandBaseName + "_ad4_out.pdbqt", null, affinityFile);
+                " --out " + ligandDir + "/" + ligandBaseName + "_out.pdbqt", null, affinityFile);
     }
 
     private static void generatePyMolScript() throws IOException {
