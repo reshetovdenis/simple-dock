@@ -1,4 +1,7 @@
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 public class DockingAutomation {
@@ -15,26 +18,65 @@ public class DockingAutomation {
     private static final int EXHAUSTIVENESS = 32;
     private static final String NPTS = "20 20 20";
     private static final String GRID_CENTER = "85.176 141.059 163.344";
+    private static final boolean FLEXIBLE = false;
+    private static final boolean SHOW_COMMANDS = false;
+    private static final String AMINO_ACID = "CYS87";
 
     public static void main(String[] args) {
         try {
             prepareReceptor();
-
             File ligandsDirectory = new File(LIGANDS_DIR);
+            int processed = 0;
             for (File file : Objects.requireNonNull(ligandsDirectory.listFiles())) {
                 if (file.getName().endsWith(".sdf")) {
                     processLigand(file.getName());
+                    processed++;
+                    System.out.println("Processed: " + processed);
                 }
             }
-//
-//            generatePyMolScript();
-
+            outputStatistics();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private static void editGpfFile(String path) throws IOException {
+    private static void outputStatistics() throws IOException {
+        Path directoryPath = Paths.get(DOCKING_DIR);
+        List<String> csvOutput = new ArrayList<>();
+        csvOutput.add("Ligand, kcal/mol");
+
+        File ligandsDirectory = new File(LIGANDS_DIR);
+        for (File file : Objects.requireNonNull(ligandsDirectory.listFiles())) {
+            if (file.getName().endsWith(".sdf")) {
+                String ligandBaseName = file.getName().split("\\.")[0];
+                String vinaResults = DOCKING_DIR + "/" + ligandBaseName + "/vina_results.txt";
+                double bestDockingResult = extractBestDockingResult(new File(vinaResults));
+                csvOutput.add(ligandBaseName + ", " + bestDockingResult);
+            }
+        }
+        Files.write(directoryPath.resolve("docking_results.csv"), csvOutput);
+    }
+
+    private static double extractBestDockingResult(File file) throws IOException {
+        double result = Double.NaN;
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains("mode") && line.contains("affinity")) {
+                    line = reader.readLine(); // Skip line
+                    line = reader.readLine(); // Skip line
+                    line = reader.readLine(); // Skip line
+                    String[] parts = line.split("\\s+");
+                    if (parts.length >= 3) {
+                        result = Double.parseDouble(parts[2]); // Extract the affinity value
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    private static void editGpfFile(String path, String ligandTypes) throws IOException {
         List<String> modifiedLines = new ArrayList<>();
 
         try (BufferedReader br = new BufferedReader(new FileReader(path))) {
@@ -44,8 +86,13 @@ public class DockingAutomation {
                     modifiedLines.add("npts " + NPTS);
                 } else if (line.trim().startsWith("gridcenter")) {
                     modifiedLines.add("gridcenter " + GRID_CENTER);
+                } else if (line.trim().startsWith("ligand_types") && ligandTypes != null) {
+                    modifiedLines.add(ligandTypes);
                 } else {
                     modifiedLines.add(line);
+                    if (line.trim().startsWith("smooth") && ligandTypes != null) {
+                        modifiedLines.add("map receptor_rigid.SA.map");
+                    }
                 }
             }
         }
@@ -63,7 +110,7 @@ public class DockingAutomation {
 
         File receptorFile = new File(DOCKING_DIR + "/receptor.pdbqt");
         if (!receptorFile.exists()) {  // Check if the receptor has already been prepared
-            executeCommand("cp " + RECEPTOR_FILE_NAME + " " + DOCKING_DIR+"/receptor.pdb");
+            executeCommand("cp " + RECEPTOR_FILE_NAME + " " + DOCKING_DIR + "/receptor.pdb");
             executeCommand(PREPARE_RECEPTOR + " -r " + DOCKING_DIR + "/receptor.pdb -o " + DOCKING_DIR + "/receptor.pdbqt");
         } else {
             System.out.println("Receptor is already prepared. Skipping preparation...");
@@ -78,18 +125,39 @@ public class DockingAutomation {
 
         String receptor_pbqt = DOCKING_DIR + "/receptor.pdbqt";
         executeCommand("cp " + receptor_pbqt + " " + ligandDir);
-
-        ligandBaseName = "ligand";
-        executeCommand(OBABEL + " " + LIGANDS_DIR + "/" + ligandFileName + " -O " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -h");
-        executeCommand("/usr/local/bin/python3 /Library/Frameworks/Python.framework/Versions/3.6/bin/mk_prepare_ligand.py -i " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -o " + ligandDir + "/" + ligandBaseName + ".pdbqt");
         File workingDirectory = new File(ligandDir);
-        executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + receptor_pbqt + " -y", workingDirectory);
-        editGpfFile(ligandDir + "/receptor.gpf");
-        executeCommand(AUTOGRID4 + " -p " + ligandDir + "/receptor.gpf -l " + ligandDir + "/receptor.glg", workingDirectory);
-        File affinityFile = new File(ligandDir + "/vina_results.txt");
-        executeCommand(VINA + " --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/receptor --scoring ad4 --exhaustiveness " +
-                EXHAUSTIVENESS +
-                " --out " + ligandDir + "/" + ligandBaseName + "_out.pdbqt", null, affinityFile);
+        ligandBaseName = "ligand";
+
+        File babelOut = new File(ligandDir + "/vina_results.txt");
+        executeCommand(OBABEL + " " + LIGANDS_DIR + "/" + ligandFileName + " -O " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -h", null, babelOut);
+        executeCommand("/usr/local/bin/python3 /Library/Frameworks/Python.framework/Versions/3.6/bin/mk_prepare_ligand.py -i " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -o " + ligandDir + "/" + ligandBaseName + ".pdbqt");
+
+
+        if (FLEXIBLE) {
+            executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_flexreceptor.py -r " + receptor_pbqt + " -s " + AMINO_ACID, workingDirectory);
+            String receptor_rigid = DOCKING_DIR + "/receptor_rigid.pdbqt";
+            String receptor_flex = DOCKING_DIR + "/receptor_flex.pdbqt";
+            executeCommand("cp " + receptor_rigid + " " + ligandDir);
+            executeCommand("cp " + receptor_flex + " " + ligandDir);
+
+            executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + ligandDir + "/receptor_rigid.pdbqt" + " -y", workingDirectory);
+            editGpfFile(ligandDir + "/receptor_rigid.gpf", "ligand_types SA NA C HD N");
+            executeCommand(AUTOGRID4 + " -p " + ligandDir + "/receptor_rigid.gpf -l " + ligandDir + "/receptor_rigid.glg", workingDirectory);
+            File affinityFile = new File(ligandDir + "/vina_results.txt");
+            executeCommand(VINA + " --flex " +
+                    ligandDir + "/" + "receptor_flex.pdbqt --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/receptor_rigid --scoring ad4 --exhaustiveness " +
+                    EXHAUSTIVENESS +
+                    " --out " + ligandDir + "/" + ligandBaseName + "_out.pdbqt", null, affinityFile);
+        } else {
+            executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + receptor_pbqt + " -y", workingDirectory);
+            editGpfFile(ligandDir + "/receptor.gpf", null);
+            executeCommand(AUTOGRID4 + " -p " + ligandDir + "/receptor.gpf -l " + ligandDir + "/receptor.glg", workingDirectory);
+            File affinityFile = new File(ligandDir + "/vina_results.txt");
+            executeCommand(VINA + " --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/receptor --scoring ad4 --exhaustiveness " +
+                    EXHAUSTIVENESS +
+                    " --out " + ligandDir + "/" + ligandBaseName + "_out.pdbqt", null, affinityFile);
+        }
+
     }
 
     private static void generatePyMolScript() throws IOException {
@@ -121,6 +189,9 @@ public class DockingAutomation {
     }
 
     private static void executeCommand(String command, File directory, File outputFile) throws IOException, InterruptedException {
+        if (SHOW_COMMANDS) {
+            System.out.println(command);
+        }
         String[] cmdArray = {"/bin/bash", "-c", command};
         ProcessBuilder processBuilder = new ProcessBuilder(cmdArray);
 
