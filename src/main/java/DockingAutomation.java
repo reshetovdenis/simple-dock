@@ -12,6 +12,7 @@ public class DockingAutomation {
     private static final String PYTHONSH = "/Users/adr/software/ADFRsuite_x86_64Darwin_1.0/bin/bin/pythonsh";
     private static final String AUTOGRID4 = "/Users/adr/software/ADFRsuite_x86_64Darwin_1.0/bin/bin/autogrid4";
     private static final String VINA = "/Users/adr/software/vina_1.2.5_mac_x86_64";
+    private static final int EXHAUSTIVENESS = 32;
 
     public static void main(String[] args) {
         try {
@@ -79,7 +80,10 @@ public class DockingAutomation {
         executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + receptor_pbqt + " -y", workingDirectory);
         editGpfFile(ligandDir + "/7usc_R87C.gpf");
         executeCommand(AUTOGRID4 + " -p " + ligandDir + "/7usc_R87C.gpf -l " + ligandDir + "/7usc_R87C.glg", workingDirectory);
-        executeCommand(VINA + " --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/7usc_R87C --scoring ad4 --exhaustiveness 64 --out " + ligandDir + "/" + ligandBaseName + "_ad4_out.pdbqt");
+        File affinityFile = new File(ligandDir+"/vina_results.txt");
+        executeCommand(VINA + " --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/7usc_R87C --scoring ad4 --exhaustiveness " +
+                EXHAUSTIVENESS +
+                " --out " + ligandDir + "/" + ligandBaseName + "_ad4_out.pdbqt", null, affinityFile);
     }
 
     private static void generatePyMolScript() throws IOException {
@@ -103,22 +107,33 @@ public class DockingAutomation {
         writer.close();
     }
 
-    private static void executeCommand(String command, File directory) throws IOException, InterruptedException {
+    private static void executeCommand(String command, File directory, File outputFile) throws IOException, InterruptedException {
         String[] cmdArray = {"/bin/bash", "-c", command};
         ProcessBuilder processBuilder = new ProcessBuilder(cmdArray);
-        if(directory != null){
+
+        if (directory != null) {
             processBuilder.directory(directory); // Set the working directory
         }
-        processBuilder.redirectErrorStream(true); // Merge stdout and stderr
-        Process process = processBuilder.start();
-        // Reading the output to console (optional, but can be helpful)
-        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String line;
-        while ((line = reader.readLine()) != null) {
-            System.out.println(line);
-        }
 
+        if (outputFile != null) {
+            processBuilder.redirectOutput(outputFile);
+        }
+        processBuilder.redirectErrorStream(true); // Merge stdout and stderr into the specified output file
+
+        Process process = processBuilder.start();
+        // Only read the output if you haven't redirected it to a file
+        if (outputFile == null) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);
+            }
+        }
         process.waitFor();
+    }
+
+    private static void executeCommand(String command, File directory) throws IOException, InterruptedException {
+        executeCommand(command, directory, null);
     }
     private static void executeCommand(String command) throws IOException, InterruptedException {
         executeCommand(command, null);
