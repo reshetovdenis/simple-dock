@@ -31,6 +31,7 @@ public class DockingAutomation {
 
     public static void main(String[] args) {
         try {
+            new File(DOCKING_DIR).mkdirs();
             prepareReceptor();
             File ligandsDirectory = new File(LIGANDS_DIR);
             int processed = 0;
@@ -115,22 +116,16 @@ public class DockingAutomation {
     }
 
     private static void prepareReceptor() throws IOException, InterruptedException {
-        new File(DOCKING_DIR).mkdirs();
-
         File receptorFile = new File(DOCKING_DIR + "/receptor.pdbqt");
         if (!receptorFile.exists()) {  // Check if the receptor has already been prepared
             executeCommand("cp " + RECEPTOR_FILE_NAME + " " + DOCKING_DIR + "/receptor.pdb");
             executeCommand(PREPARE_RECEPTOR + " -r " + DOCKING_DIR + "/receptor.pdb -o " + DOCKING_DIR + "/receptor.pdbqt");
-        } else {
-            System.out.println("Receptor is already prepared. Skipping preparation...");
         }
-
         if (FLEXIBLE) {
             File receptorFlex = new File(RECEPTOR_FLEX);
             File receptorRigid = new File(RECEPTOR_RIGID);
             if (!receptorFlex.exists() || !receptorRigid.exists()) {
-                executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_flexreceptor.py -r " + RECEPTOR_PBQT + " -s " + AMINO_ACID,
-                        new File(DOCKING_DIR));
+                executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_flexreceptor.py -r " + RECEPTOR_PBQT + " -s " + AMINO_ACID, new File(DOCKING_DIR));
             }
         }
     }
@@ -143,33 +138,33 @@ public class DockingAutomation {
         File workingDirectory = new File(ligandDir);
         ligandBaseName = "ligand";
 
-        File babelOut = new File(ligandDir + "/vina_results.txt");
+        File babelOut = new File(ligandDir + "/babel.log");
         executeCommand(OBABEL + " " + LIGANDS_DIR + "/" + ligandFileName + " -O " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -h", null, babelOut);
         executeCommand("/usr/local/bin/python3 /Library/Frameworks/Python.framework/Versions/3.6/bin/mk_prepare_ligand.py -i " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -o " + ligandDir + "/" + ligandBaseName + ".pdbqt");
 
-        String actualReceptor = RECEPTOR_PBQT;
-        String ligandTypesGpf = null;
-        String receptorString = "../receptor.pdbqt";
-        String actualGpf = ligandDir + "/receptor.gpf";
-        String actualGlg = ligandDir + "/receptor.glg";
-        String actualPrefix = "receptor";
+        String receptorToRun = RECEPTOR_PBQT;
+        String configLigandTypes = null;
+        String configReceptor = "../receptor.pdbqt";
+        String gpf = ligandDir + "/receptor.gpf";
+        String glg = ligandDir + "/receptor.glg";
+        String mapsPrefix = "receptor";
         String vinaCommandParam = "";
 
         if (FLEXIBLE) {
-            actualReceptor = RECEPTOR_RIGID;
-            ligandTypesGpf = "ligand_types SA NA C HD N";
-            receptorString = "../receptor_rigid.pdbqt";
-            actualGpf = ligandDir + "/receptor_rigid.gpf";
-            actualGlg = ligandDir + "/receptor_rigid.glg";
-            actualPrefix = "receptor_rigid";
+            receptorToRun = RECEPTOR_RIGID;
+            configLigandTypes = "ligand_types SA NA C HD N";
+            configReceptor = "../receptor_rigid.pdbqt";
+            gpf = ligandDir + "/receptor_rigid.gpf";
+            glg = ligandDir + "/receptor_rigid.glg";
+            mapsPrefix = "receptor_rigid";
             vinaCommandParam = " --flex " + RECEPTOR_FLEX;
         }
-        executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + actualReceptor + " -y" + " -o " + actualGpf, new File(DOCKING_DIR));
-        editGpfFile(actualGpf, ligandTypesGpf, receptorString);
-        executeCommand(AUTOGRID4 + " -p " + actualGpf + " -l " + actualGlg, workingDirectory);
+        executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + receptorToRun + " -y" + " -o " + gpf, new File(DOCKING_DIR));
+        editGpfFile(gpf, configLigandTypes, configReceptor);
+        executeCommand(AUTOGRID4 + " -p " + gpf + " -l " + glg, workingDirectory);
         File affinityFile = new File(ligandDir + "/vina_results.txt");
         executeCommand(VINA +
-                " --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/" + actualPrefix + " --scoring ad4 --exhaustiveness " +
+                " --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/" + mapsPrefix + " --scoring ad4 --exhaustiveness " +
                 EXHAUSTIVENESS + " --out " + ligandDir + "/" + ligandBaseName + "_out.pdbqt" + vinaCommandParam, null, affinityFile);
     }
 
