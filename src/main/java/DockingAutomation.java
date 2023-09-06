@@ -5,22 +5,29 @@ import java.nio.file.Paths;
 import java.util.*;
 
 public class DockingAutomation {
-    private static final String RECEPTOR_FILE_NAME = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230904/7usc_R87C_H_pymol.pdb";
+    // Run configuration
     private static final String BASE_DIR = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230905/docking";
+    private static final String DOCKING_DIR = BASE_DIR + "/7usc";
+    private static final boolean FLEXIBLE = false;
+    private static final int EXHAUSTIVENESS = 8;
+    private static final String NPTS = "20 20 20";
+    private static final String GRID_CENTER = "85.176 141.059 163.344";
+    private static final String AMINO_ACID = "CYS87";
+    private static final boolean SHOW_COMMANDS = false;
     private static final String LIGANDS_DIR = BASE_DIR + "/ligands_input";
-    private static final String DOCKING_DIR = BASE_DIR + "/7usc_rigid";
+    private static final String RECEPTOR_FILE_NAME = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230904/7usc_R87C_H_pymol.pdb";
+    // Path to programs:
     private static final String PREPARE_RECEPTOR = "/Users/adr/software/ADFRsuite_x86_64Darwin_1.0/bin/bin/prepare_receptor";
     private static final String VINA_SCRIPT = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230904/AutoDock-Vina/example/autodock_scripts";
     private static final String OBABEL = "/Users/adr/software/ADFRsuite_x86_64Darwin_1.0/bin/bin/obabel";
     private static final String PYTHONSH = "/Users/adr/software/ADFRsuite_x86_64Darwin_1.0/bin/bin/pythonsh";
     private static final String AUTOGRID4 = "/Users/adr/software/ADFRsuite_x86_64Darwin_1.0/bin/bin/autogrid4";
     private static final String VINA = "/Users/adr/software/vina_1.2.5_mac_x86_64";
-    private static final int EXHAUSTIVENESS = 32;
-    private static final String NPTS = "20 20 20";
-    private static final String GRID_CENTER = "85.176 141.059 163.344";
-    private static final boolean FLEXIBLE = false;
-    private static final boolean SHOW_COMMANDS = false;
-    private static final String AMINO_ACID = "CYS87";
+    // Don't change this:
+    private static final String RECEPTOR_PBQT = DOCKING_DIR + "/receptor.pdbqt";
+    private static final String RECEPTOR_RIGID = DOCKING_DIR + "/receptor_rigid.pdbqt";
+    private static final String RECEPTOR_FLEX = DOCKING_DIR + "/receptor_flex.pdbqt";
+    // END Don't change this
 
     public static void main(String[] args) {
         try {
@@ -115,6 +122,15 @@ public class DockingAutomation {
         } else {
             System.out.println("Receptor is already prepared. Skipping preparation...");
         }
+
+        if(FLEXIBLE){
+            File receptorFlex = new File(RECEPTOR_FLEX);
+            File receptorRigid = new File(RECEPTOR_RIGID);
+            if(!receptorFlex.exists() || !receptorRigid.exists()){
+                executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_flexreceptor.py -r " + RECEPTOR_PBQT + " -s " + AMINO_ACID,
+                        new File(DOCKING_DIR));
+            }
+        }
     }
 
     private static void processLigand(String ligandFileName) throws IOException, InterruptedException {
@@ -123,8 +139,8 @@ public class DockingAutomation {
         String ligandDir = DOCKING_DIR + "/" + ligandBaseName;
         new File(ligandDir).mkdirs();
 
-        String receptor_pbqt = DOCKING_DIR + "/receptor.pdbqt";
-        executeCommand("cp " + receptor_pbqt + " " + ligandDir);
+
+        executeCommand("cp " + RECEPTOR_PBQT + " " + ligandDir);
         File workingDirectory = new File(ligandDir);
         ligandBaseName = "ligand";
 
@@ -134,11 +150,10 @@ public class DockingAutomation {
 
 
         if (FLEXIBLE) {
-            executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_flexreceptor.py -r " + receptor_pbqt + " -s " + AMINO_ACID, workingDirectory);
-            String receptor_rigid = DOCKING_DIR + "/receptor_rigid.pdbqt";
-            String receptor_flex = DOCKING_DIR + "/receptor_flex.pdbqt";
-            executeCommand("cp " + receptor_rigid + " " + ligandDir);
-            executeCommand("cp " + receptor_flex + " " + ligandDir);
+//            executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_flexreceptor.py -r " + receptor_pbqt + " -s " + AMINO_ACID, workingDirectory);
+
+            executeCommand("cp " + RECEPTOR_RIGID + " " + ligandDir);
+            executeCommand("cp " + RECEPTOR_FLEX + " " + ligandDir);
 
             executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + ligandDir + "/receptor_rigid.pdbqt" + " -y", workingDirectory);
             editGpfFile(ligandDir + "/receptor_rigid.gpf", "ligand_types SA NA C HD N");
@@ -149,7 +164,7 @@ public class DockingAutomation {
                     EXHAUSTIVENESS +
                     " --out " + ligandDir + "/" + ligandBaseName + "_out.pdbqt", null, affinityFile);
         } else {
-            executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + receptor_pbqt + " -y", workingDirectory);
+            executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + RECEPTOR_PBQT + " -y", workingDirectory);
             editGpfFile(ligandDir + "/receptor.gpf", null);
             executeCommand(AUTOGRID4 + " -p " + ligandDir + "/receptor.gpf -l " + ligandDir + "/receptor.glg", workingDirectory);
             File affinityFile = new File(ligandDir + "/vina_results.txt");
