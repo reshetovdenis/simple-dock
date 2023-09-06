@@ -8,7 +8,7 @@ public class DockingAutomation {
     // Run configuration
     private static final String BASE_DIR = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230905/docking";
     private static final String DOCKING_DIR = BASE_DIR + "/7usc";
-    private static final boolean FLEXIBLE = true;
+    private static final boolean FLEXIBLE = false;
     private static final int EXHAUSTIVENESS = 8;
     private static final String NPTS = "20 20 20";
     private static final String GRID_CENTER = "85.176 141.059 163.344";
@@ -125,10 +125,10 @@ public class DockingAutomation {
             System.out.println("Receptor is already prepared. Skipping preparation...");
         }
 
-        if(FLEXIBLE){
+        if (FLEXIBLE) {
             File receptorFlex = new File(RECEPTOR_FLEX);
             File receptorRigid = new File(RECEPTOR_RIGID);
-            if(!receptorFlex.exists() || !receptorRigid.exists()){
+            if (!receptorFlex.exists() || !receptorRigid.exists()) {
                 executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_flexreceptor.py -r " + RECEPTOR_PBQT + " -s " + AMINO_ACID,
                         new File(DOCKING_DIR));
             }
@@ -147,31 +147,30 @@ public class DockingAutomation {
         executeCommand(OBABEL + " " + LIGANDS_DIR + "/" + ligandFileName + " -O " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -h", null, babelOut);
         executeCommand("/usr/local/bin/python3 /Library/Frameworks/Python.framework/Versions/3.6/bin/mk_prepare_ligand.py -i " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -o " + ligandDir + "/" + ligandBaseName + ".pdbqt");
 
-        String receptorRigidGpf = ligandDir + "/receptor_rigid.gpf";
-        String receptorRigidGlg = ligandDir + "/receptor_rigid.glg";
-
-        String receptorGpf = ligandDir + "/receptor.gpf";
-        String receptorGlg = ligandDir + "/receptor.glg";
+        String actualReceptor = RECEPTOR_PBQT;
+        String ligandTypesGpf = null;
+        String receptorString = "../receptor.pdbqt";
+        String actualGpf = ligandDir + "/receptor.gpf";
+        String actualGlg = ligandDir + "/receptor.glg";
+        String actualPrefix = "receptor";
+        String vinaCommandParam = "";
 
         if (FLEXIBLE) {
-            executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + RECEPTOR_RIGID + " -y" + " -o " + receptorRigidGpf, new File(DOCKING_DIR));
-            editGpfFile(receptorRigidGpf, "ligand_types SA NA C HD N", "../receptor_rigid.pdbqt");
-            executeCommand(AUTOGRID4 + " -p " + receptorRigidGpf + " -l " + receptorRigidGlg, workingDirectory);
-            File affinityFile = new File(ligandDir + "/vina_results.txt");
-            executeCommand(VINA + " --flex " +
-                    RECEPTOR_FLEX +" --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/receptor_rigid --scoring ad4 --exhaustiveness " +
-                    EXHAUSTIVENESS +
-                    " --out " + ligandDir + "/" + ligandBaseName + "_out.pdbqt", null, affinityFile);
-        } else {
-            executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + RECEPTOR_PBQT + " -y" + " -o " + receptorGpf, new File(DOCKING_DIR));
-            editGpfFile(receptorGpf, null, "../receptor.pdbqt");
-            executeCommand(AUTOGRID4 + " -p " + receptorGpf + " -l " + receptorGlg, workingDirectory);
-            File affinityFile = new File(ligandDir + "/vina_results.txt");
-            executeCommand(VINA + " --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/receptor --scoring ad4 --exhaustiveness " +
-                    EXHAUSTIVENESS +
-                    " --out " + ligandDir + "/" + ligandBaseName + "_out.pdbqt", null, affinityFile);
+            actualReceptor = RECEPTOR_RIGID;
+            ligandTypesGpf = "ligand_types SA NA C HD N";
+            receptorString = "../receptor_rigid.pdbqt";
+            actualGpf = ligandDir + "/receptor_rigid.gpf";
+            actualGlg = ligandDir + "/receptor_rigid.glg";
+            actualPrefix = "receptor_rigid";
+            vinaCommandParam = " --flex " + RECEPTOR_FLEX;
         }
-
+        executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + actualReceptor + " -y" + " -o " + actualGpf, new File(DOCKING_DIR));
+        editGpfFile(actualGpf, ligandTypesGpf, receptorString);
+        executeCommand(AUTOGRID4 + " -p " + actualGpf + " -l " + actualGlg, workingDirectory);
+        File affinityFile = new File(ligandDir + "/vina_results.txt");
+        executeCommand(VINA +
+                " --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/" + actualPrefix + " --scoring ad4 --exhaustiveness " +
+                EXHAUSTIVENESS + " --out " + ligandDir + "/" + ligandBaseName + "_out.pdbqt" + vinaCommandParam, null, affinityFile);
     }
 
     private static void generatePyMolScript() throws IOException {
