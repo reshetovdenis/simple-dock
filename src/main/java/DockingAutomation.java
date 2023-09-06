@@ -6,9 +6,9 @@ import java.util.*;
 
 public class DockingAutomation {
     // Run configuration
-    private static final String BASE_DIR = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230905/docking";
+    private static final String BASE_DIR = "/Users/adr/programming/docking";
     private static final String DOCKING_DIR = BASE_DIR + "/7usc";
-    private static final boolean FLEXIBLE = false;
+    private static final boolean FLEXIBLE = true;
     private static final int EXHAUSTIVENESS = 8;
     private static final String NPTS = "20 20 20";
     private static final String GRID_CENTER = "85.176 141.059 163.344";
@@ -27,6 +27,7 @@ public class DockingAutomation {
     private static final String RECEPTOR_PBQT = DOCKING_DIR + "/receptor.pdbqt";
     private static final String RECEPTOR_RIGID = DOCKING_DIR + "/receptor_rigid.pdbqt";
     private static final String RECEPTOR_FLEX = DOCKING_DIR + "/receptor_flex.pdbqt";
+    private static final String ADD_ATOM_TYPES = "SA";
     // END Don't change this
 
     public static void main(String[] args) {
@@ -84,7 +85,7 @@ public class DockingAutomation {
         return result;
     }
 
-    private static void editGpfFile(String path, String ligandTypes, String receptorFile) throws IOException {
+    private static void editGpfFile(String path, String atomTypes, String receptorFile) throws IOException {
         List<String> modifiedLines = new ArrayList<>();
 
         try (BufferedReader br = new BufferedReader(new FileReader(path))) {
@@ -96,11 +97,15 @@ public class DockingAutomation {
                     modifiedLines.add("gridcenter " + GRID_CENTER);
                 } else if (line.trim().startsWith("receptor ")) {
                     modifiedLines.add("receptor " + receptorFile);
-                } else if (line.trim().startsWith("ligand_types") && ligandTypes != null) {
-                    modifiedLines.add(ligandTypes);
+                } else if (line.trim().startsWith("ligand_types") && atomTypes != null) {
+                    String types = line.trim();
+                    if (!types.contains(" " + atomTypes + " ")) {
+                        types = types.replace("ligand_types", "ligand_types " + atomTypes);
+                    }
+                    modifiedLines.add(types);
                 } else {
                     modifiedLines.add(line);
-                    if (line.trim().startsWith("smooth") && ligandTypes != null) {
+                    if (line.trim().startsWith("smooth") && atomTypes != null) {
                         modifiedLines.add("map receptor_rigid.SA.map");
                     }
                 }
@@ -119,7 +124,8 @@ public class DockingAutomation {
         File receptorFile = new File(DOCKING_DIR + "/receptor.pdbqt");
         if (!receptorFile.exists()) {  // Check if the receptor has already been prepared
             executeCommand("cp " + RECEPTOR_FILE_NAME + " " + DOCKING_DIR + "/receptor.pdb");
-            executeCommand(PREPARE_RECEPTOR + " -r " + DOCKING_DIR + "/receptor.pdb -o " + DOCKING_DIR + "/receptor.pdbqt");
+            File prepareReceptorLog = new File(DOCKING_DIR + "/prepareReceptor.log");
+            executeCommand(PREPARE_RECEPTOR + " -r " + DOCKING_DIR + "/receptor.pdb -o " + DOCKING_DIR + "/receptor.pdbqt", null, prepareReceptorLog);
         }
         if (FLEXIBLE) {
             File receptorFlex = new File(RECEPTOR_FLEX);
@@ -132,6 +138,7 @@ public class DockingAutomation {
 
     private static void processLigand(String ligandFileName) throws IOException, InterruptedException {
         String ligandBaseName = ligandFileName.split("\\.")[0];
+        System.out.println("-----------------");
         System.out.println(ligandFileName);
         String ligandDir = DOCKING_DIR + "/" + ligandBaseName;
         new File(ligandDir).mkdirs();
@@ -152,7 +159,7 @@ public class DockingAutomation {
 
         if (FLEXIBLE) {
             receptorToRun = RECEPTOR_RIGID;
-            configLigandTypes = "ligand_types SA NA C HD N";
+            configLigandTypes = ADD_ATOM_TYPES;
             configReceptor = "../receptor_rigid.pdbqt";
             gpf = ligandDir + "/receptor_rigid.gpf";
             glg = ligandDir + "/receptor_rigid.glg";
