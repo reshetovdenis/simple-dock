@@ -7,7 +7,8 @@ import java.util.*;
 public class DockingAutomation {
     // Run configuration
     private static final String BASE_DIR = "/Users/adr/programming/docking";
-    private static final String DOCKING_DIR = BASE_DIR + "/7usc";
+    private static final String RECEPTOR_FILE_NAME = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230904/7usc_R87C_H_pymol.pdb";
+    private static final String DOCKING_DIR = BASE_DIR + "/7usc_R87C_H_flex_32";
     private static final boolean FLEXIBLE = true;
     private static final int EXHAUSTIVENESS = 32;
     private static final String NPTS = "20 20 20";
@@ -16,7 +17,6 @@ public class DockingAutomation {
     private static final boolean SHOW_COMMANDS = false;
 
     private static final String LIGANDS_DIR = BASE_DIR + "/ligands_input";
-    private static final String RECEPTOR_FILE_NAME = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230904/7usc_R87C_H_pymol.pdb";
     // Path to programs:
     private static final String PREPARE_RECEPTOR = "/Users/adr/software/ADFRsuite_x86_64Darwin_1.0/bin/bin/prepare_receptor";
     private static final String VINA_SCRIPT = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230904/AutoDock-Vina/example/autodock_scripts";
