@@ -8,12 +8,12 @@ public class DockingAutomation {
     // Run configuration
     private static final String BASE_DIR = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230905/docking";
     private static final String DOCKING_DIR = BASE_DIR + "/7usc";
-    private static final boolean FLEXIBLE = false;
+    private static final boolean FLEXIBLE = true;
     private static final int EXHAUSTIVENESS = 8;
     private static final String NPTS = "20 20 20";
     private static final String GRID_CENTER = "85.176 141.059 163.344";
     private static final String AMINO_ACID = "CYS87";
-    private static final boolean SHOW_COMMANDS = false;
+    private static final boolean SHOW_COMMANDS = true;
     private static final String LIGANDS_DIR = BASE_DIR + "/ligands_input";
     private static final String RECEPTOR_FILE_NAME = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230904/7usc_R87C_H_pymol.pdb";
     // Path to programs:
@@ -93,6 +93,8 @@ public class DockingAutomation {
                     modifiedLines.add("npts " + NPTS);
                 } else if (line.trim().startsWith("gridcenter")) {
                     modifiedLines.add("gridcenter " + GRID_CENTER);
+                } else if (line.trim().startsWith("receptor ")) {
+                    modifiedLines.add("receptor ../receptor_rigid.pdbqt");
                 } else if (line.trim().startsWith("ligand_types") && ligandTypes != null) {
                     modifiedLines.add(ligandTypes);
                 } else {
@@ -148,19 +150,16 @@ public class DockingAutomation {
         executeCommand(OBABEL + " " + LIGANDS_DIR + "/" + ligandFileName + " -O " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -h", null, babelOut);
         executeCommand("/usr/local/bin/python3 /Library/Frameworks/Python.framework/Versions/3.6/bin/mk_prepare_ligand.py -i " + ligandDir + "/" + ligandBaseName + "_hyd.sdf -o " + ligandDir + "/" + ligandBaseName + ".pdbqt");
 
+        String receptorRigidGpf = ligandDir + "/receptor_rigid.gpf";
+        String receptorRigidGlg = ligandDir + "/receptor_rigid.glg";
 
         if (FLEXIBLE) {
-//            executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_flexreceptor.py -r " + receptor_pbqt + " -s " + AMINO_ACID, workingDirectory);
-
-            executeCommand("cp " + RECEPTOR_RIGID + " " + ligandDir);
-            executeCommand("cp " + RECEPTOR_FLEX + " " + ligandDir);
-
-            executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + ligandDir + "/receptor_rigid.pdbqt" + " -y", workingDirectory);
-            editGpfFile(ligandDir + "/receptor_rigid.gpf", "ligand_types SA NA C HD N");
-            executeCommand(AUTOGRID4 + " -p " + ligandDir + "/receptor_rigid.gpf -l " + ligandDir + "/receptor_rigid.glg", workingDirectory);
+            executeCommand(PYTHONSH + " " + VINA_SCRIPT + "/prepare_gpf.py -l " + ligandDir + "/" + ligandBaseName + ".pdbqt -r " + RECEPTOR_RIGID + " -y" + " -o " + receptorRigidGpf, new File(DOCKING_DIR));
+            editGpfFile(receptorRigidGpf, "ligand_types SA NA C HD N");
+            executeCommand(AUTOGRID4 + " -p " + receptorRigidGpf + " -l " + receptorRigidGlg, workingDirectory);
             File affinityFile = new File(ligandDir + "/vina_results.txt");
             executeCommand(VINA + " --flex " +
-                    ligandDir + "/" + "receptor_flex.pdbqt --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/receptor_rigid --scoring ad4 --exhaustiveness " +
+                    RECEPTOR_FLEX +" --ligand " + ligandDir + "/" + ligandBaseName + ".pdbqt --maps " + ligandDir + "/receptor_rigid --scoring ad4 --exhaustiveness " +
                     EXHAUSTIVENESS +
                     " --out " + ligandDir + "/" + ligandBaseName + "_out.pdbqt", null, affinityFile);
         } else {
