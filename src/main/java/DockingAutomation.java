@@ -3,21 +3,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.*;
 
 public class DockingAutomation {
     // Run configuration
     private static final String BASE_DIR = "/Users/adr/programming/docking";
     private static final String DOCKING_DIR = BASE_DIR + "/7usc";
     private static final boolean FLEXIBLE = true;
-    private static final int EXHAUSTIVENESS = 8;
+    private static final int EXHAUSTIVENESS = 32;
     private static final String NPTS = "20 20 20";
     private static final String GRID_CENTER = "85.176 141.059 163.344";
     private static final String AMINO_ACID = "CYS87";
     private static final boolean SHOW_COMMANDS = false;
-
-    private static final int NUM_THREADS = 1;
-//    private static final int NUM_THREADS = Runtime.getRuntime().availableProcessors();
 
     private static final String LIGANDS_DIR = BASE_DIR + "/ligands_input";
     private static final String RECEPTOR_FILE_NAME = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230904/7usc_R87C_H_pymol.pdb";
@@ -36,9 +32,7 @@ public class DockingAutomation {
     // END Don't change this
 
 
-
     public static void main(String[] args) {
-        System.out.println("NUM_THREADS: "+NUM_THREADS);
         long startTime = System.nanoTime();
         // Call the method you want to measure time for
         dock();
@@ -49,31 +43,29 @@ public class DockingAutomation {
     }
 
     public static void dock() {
-        final ExecutorService executorService = Executors.newFixedThreadPool(NUM_THREADS);
         try {
             new File(DOCKING_DIR).mkdirs();
             prepareReceptor();
             File ligandsDirectory = new File(LIGANDS_DIR);
-            List<Future<Void>> futures = new ArrayList<>();
-            for (File file : Objects.requireNonNull(ligandsDirectory.listFiles())) {
-                if (file.getName().endsWith(".sdf")) {
-                    Future<Void> future = executorService.submit(processLigandTask(file.getName()));
-                    futures.add(future);
-                }
-            }
-            // Wait for all tasks to complete
-            for (Future<Void> future : futures) {
+
+            File[] ligandFiles = Objects.requireNonNull(ligandsDirectory.listFiles((dir, name) -> name.endsWith(".sdf")));
+            int totalLigands = ligandFiles.length;
+            int processed = 0;
+            for (File file : ligandFiles) {
                 try {
-                    future.get();
-                } catch (ExecutionException e) {
+                    processLigand(file.getName());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
+                ++processed;
+                System.out.print("\rProcessed: " + processed + "/" + totalLigands);
             }
+            System.out.println();//new line
             outputStatistics();
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            executorService.shutdown();
         }
     }
 
@@ -164,17 +156,8 @@ public class DockingAutomation {
         }
     }
 
-    private static Callable<Void> processLigandTask(String ligandFileName) {
-        return () -> {
-            processLigand(ligandFileName);
-            return null;
-        };
-    }
-
-
     private static void processLigand(String ligandFileName) throws IOException, InterruptedException {
         String ligandBaseName = ligandFileName.split("\\.")[0];
-        System.out.println(ligandFileName);
         String ligandDir = DOCKING_DIR + "/" + ligandBaseName;
         new File(ligandDir).mkdirs();
         File workingDirectory = new File(ligandDir);
