@@ -19,7 +19,7 @@ jobs:
     - name: Get Commit Hash
       id: getHash
       run: |
-        git clone https://github.com/ccsb-scripps/AutoDock-Vina.git -b develop .
+        git clone https://github.com/reshetovdenis/AutoDock-Vina.git -b develop .
         echo "commitHash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
     - name: Compare Commit Hash

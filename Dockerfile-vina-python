@@ -15,7 +15,8 @@ RUN /bin/bash -c " \
     && source /root/.bashrc; conda activate vina \
     && conda config --env --add channels conda-forge \
     && conda install -c conda-forge numpy boost-cpp swig openbabel scipy \
-    && git clone -b $BRANCHES https://github.com/ccsb-scripps/AutoDock-Vina /app/AutoDock-Vina \
+    && git clone https://github.com/reshetovdenis/AutoDock-Vina /app/AutoDock-Vina \
+    && cd /app/AutoDock-Vina; git checkout e3b7cde2ee27dd035252470b869f06e9b72ff3ed \
     && cd /app/AutoDock-Vina/build/linux/release; make \
     && cd /app/AutoDock-Vina/build/python; python setup.py build \
     "

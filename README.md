@@ -5,7 +5,7 @@
 [![UpdateChecker](https://img.shields.io/badge/Update%20Checker-latest-green?logo=TryHackMe)](https://github.com/Metaphorme/AutoDock-Vina-Docker/actions/workflows/update-checker.yml)
 ![License](https://img.shields.io/github/license/Metaphorme/AutoDock-Vina-Docker?logo=opensourceinitiative)
 
-Package [AutoDock Vina](https://github.com/ccsb-scripps/AutoDock-Vina), [ADFR suite](https://ccsb.scripps.edu/adfr/), [Meeko](https://github.com/forlilab/Meeko), [MGLTools](https://ccsb.scripps.edu/mgltools/) into Docker image.
+Package [AutoDock Vina](https://github.com/reshetovdenis/AutoDock-Vina), [ADFR suite](https://ccsb.scripps.edu/adfr/), [Meeko](https://github.com/forlilab/Meeko), [MGLTools](https://ccsb.scripps.edu/mgltools/) into Docker image.
 
 **Notice:** Please makesure you will obey the License of [AutoDock Vina](https://autodock-vina.readthedocs.io/en/latest/citations.html), [ADFR software suite Non-Commercial Use](https://ccsb.scripps.edu/adfr/license/), [Meeko](https://github.com/forlilab/Meeko/blob/develop/LICENSE) before downloading this Docker image.
 
@@ -28,21 +28,21 @@ Because of the lack arm64 support of **ADFR Suite** and **MGLTools**, we can't p
 
 ```bash
 # vina
-# Build from https://github.com/ccsb-scripps/AutoDock-Vina/tree/release
+# Build from https://github.com/reshetovdenis/AutoDock-Vina/tree/release
 docker pull ghcr.io/metaphorme/vina:release
-# Build from https://github.com/ccsb-scripps/AutoDock-Vina/tree/develop
+# Build from https://github.com/reshetovdenis/AutoDock-Vina/tree/develop
 docker pull ghcr.io/metaphorme/vina:develop
 
 # vina-python
-# Build from https://github.com/ccsb-scripps/AutoDock-Vina/tree/release
+# Build from https://github.com/reshetovdenis/AutoDock-Vina/tree/release
 docker pull ghcr.io/metaphorme/vina-python:release
-# Build from https://github.com/ccsb-scripps/AutoDock-Vina/tree/develop
+# Build from https://github.com/reshetovdenis/AutoDock-Vina/tree/develop
 docker pull ghcr.io/metaphorme/vina-python:develop
 
 # vina-all
-# Build from https://github.com/ccsb-scripps/AutoDock-Vina/tree/release
+# Build from https://github.com/reshetovdenis/AutoDock-Vina/tree/release
 docker pull ghcr.io/metaphorme/vina-all:release
-# Build from https://github.com/ccsb-scripps/AutoDock-Vina/tree/develop
+# Build from https://github.com/reshetovdenis/AutoDock-Vina/tree/develop
 docker pull ghcr.io/metaphorme/vina-all:develop
 
 # MGLTools
