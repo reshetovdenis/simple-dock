@@ -7,8 +7,8 @@ import java.util.*;
 public class DockingAutomation {
     // Run configuration
     private static final String BASE_DIR = "/Users/adr/programming/docking";
-    private static final String RECEPTOR_FILE_NAME = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230904/7usc_R87C_H_pymol.pdb";
-    private static final String DOCKING_DIR = BASE_DIR + "/7usc_R87C_H_flex_8";
+    private static final String RECEPTOR_FILE_NAME = "/Users/adr/localGoogleDrive/CYFIP2_project/lab_journals/Denis_Reshetov/files/20230904/7usc_R87C_H_around_8.pdb";
+    private static final String DOCKING_DIR = BASE_DIR + "/7usc_R87C_H_around_8_flex_8";
     private static final boolean FLEXIBLE = true;
     private static final int EXHAUSTIVENESS = 8;
     private static final String NPTS = "20 20 20";
